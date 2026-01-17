@@ -6,7 +6,7 @@ from datetime import date
 # Configuração da Página
 st.set_page_config(
     page_title="Comparador de Retorno - Isento vs Tributado",
-    page_icon="📉",
+    page_icon="📊📈",
     layout="centered"
 )
 
