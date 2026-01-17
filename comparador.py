@@ -92,11 +92,15 @@ if rate_type == "IPCA+ (% a.a.)":
         help="Essencial para calcular o IR sobre a inflação."
     ) / 100
 elif rate_type == "Pós-Fixado (% do CDI)":
-    cdi_proj = st.sidebar.number_input(
-        "CDI Médio Projetado (% a.a.)",
-        value=11.25, step=0.10, format="%.2f",
-        help="Necessário para calcular o valor financeiro final."
-    ) / 100
+    # A projeção do CDI só aparece se estivermos no Modo 1 (Cálculo Financeiro)
+    if mode == "1. Comparar em Reais (R$)":
+        cdi_proj = st.sidebar.number_input(
+            "CDI Médio Projetado (% a.a.)",
+            value=11.25, step=0.10, format="%.2f",
+            help="Necessário para calcular o valor financeiro final."
+        ) / 100
+    else:
+        cdi_proj = 0.0 # Não relevante para comparação de taxas puras
 
 # Dicionário de Alíquotas para modo simples
 ir_options = {
@@ -221,6 +225,13 @@ elif mode == "2. Comparar em Taxas (%)":
     with col1:
         st.subheader("🛡️ Isento")
         rate_exempt = st.number_input("Taxa Nominal", value=90.0 if rate_type == "Pós-Fixado (% do CDI)" else 6.0, step=0.1, key="rate_ex_taxas")
+        
+        if tipo_input_duelo == "Calcular por Datas":
+            dt_compra_ex = st.date_input("Compra", date.today(), format="DD/MM/YYYY", key="dt_c_ex_taxas")
+            dt_venc_ex = st.date_input("Vencimento", date.today().replace(year=date.today().year + 1), format="DD/MM/YYYY", key="dt_v_ex_taxas")
+            dias_ex = (dt_venc_ex - dt_compra_ex).days
+            if dias_ex > 0: st.caption(f"Prazo: {dias_ex} dias")
+            else: st.error("Data inválida")
     
     with col2:
         st.subheader("🏛️ Tributado")
