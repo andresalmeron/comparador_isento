@@ -54,8 +54,8 @@ def calcular_aliquota_ir(dias):
         return 0.15, "15,0% (Acima de 2 anos)"
 
 # --- TÍTULO ---
-st.title("💸 Calculadora de Equivalência Fiscal")
-st.markdown("Compare **Isentos** (LCI, LCA, CRI, CRA) vs **Tributados** (CDB, LC, Tesouro).")
+st.title("Qual opção traz mais dinheiro no bolso? 📊🤔")
+st.markdown("Compare **Isentos** (LCI, LCA, Incentivados) vs **Tributados** (CDB, Tesouro, Fundos).")
 st.divider()
 
 # --- SIDEBAR ---
@@ -115,7 +115,7 @@ if mode == "1. Comparar dois papéis (Duelo)":
         rate_exempt = st.number_input("Taxa Isenta", value=90.0 if rate_type == "Pós-Fixado (% do CDI)" else 6.0, step=0.1)
         
         if tipo_input_duelo == "Inserir Datas Específicas (Avançado)":
-            st.caption("Datas do Papel Isento")
+            st.caption("Datas do Ativo Isento")
             # ADICIONADO: format="DD/MM/YYYY"
             dt_compra_ex = st.date_input("Compra (Isento)", date.today(), format="DD/MM/YYYY")
             dt_venc_ex = st.date_input("Vencimento (Isento)", date.today().replace(year=date.today().year + 1), format="DD/MM/YYYY")
@@ -135,7 +135,7 @@ if mode == "1. Comparar dois papéis (Duelo)":
         texto_ir = ""
 
         if tipo_input_duelo == "Inserir Datas Específicas (Avançado)":
-            st.caption("Datas do Papel Tributado")
+            st.caption("Datas do Ativo Tributado")
             # ADICIONADO: format="DD/MM/YYYY"
             dt_compra_br = st.date_input("Compra (Tributado)", date.today(), format="DD/MM/YYYY")
             dt_venc_br = st.date_input("Vencimento (Tributado)", date.today().replace(year=date.today().year + 2), format="DD/MM/YYYY")
@@ -200,18 +200,18 @@ if mode == "1. Comparar dois papéis (Duelo)":
             st.markdown(f"""
             <div class="success-box">
             <h3>🏆 O ISENTO VENCEU!</h3>
-            O papel isento rende <b>{abs(diff):.2f} p.p.</b> a mais que este tributado.<br>
+            O ativo isento rende <b>{abs(diff):.2f} p.p.</b> a mais que a opção tributada.<br>
             </div>
             """, unsafe_allow_html=True)
         elif diff < -0.01:
             st.markdown(f"""
             <div class="warning-box">
             <h3>⚠️ O TRIBUTADO VENCEU!</h3>
-            O papel tributado rende <b>{abs(diff):.2f} p.p.</b> a mais, já descontando IR.<br>
+            Mesmo com IR, a opção tributada rende <b>{abs(diff):.2f} p.p.</b> a mais.<br>
             </div>
             """, unsafe_allow_html=True)
         else:
-            st.markdown("""<div class="info-box"><h3>🤝 EMPATE TÉCNICO</h3>Rentabilidade praticamente idêntica.</div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="info-box"><h3>🤝 EMPATE TÉCNICO</h3>As rentabilidades são praticamente idênticas.</div>""", unsafe_allow_html=True)
 
 # ==============================================================================
 # MODO 2: ISENTO -> BRUTO
