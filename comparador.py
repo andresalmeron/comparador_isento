@@ -5,8 +5,8 @@ from datetime import date
 
 # Configuração da Página
 st.set_page_config(
-    page_title="Calculadora Gekko de Isenção",
-    page_icon="💸",
+    page_title="Comparador de Retorno - Isento vs Tributado",
+    page_icon="📉",
     layout="centered"
 )
 
