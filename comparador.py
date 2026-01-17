@@ -9,69 +9,55 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- ESTILIZAÇÃO CSS (Para deixar mais 'pedagógico' e visual) ---
+# --- ESTILIZAÇÃO CSS ---
 st.markdown("""
     <style>
-    .big-font {
-        font-size:20px !important;
-        font-weight: bold;
-    }
+    .big-font { font-size:20px !important; font-weight: bold; }
     .success-box {
-        padding: 10px;
+        padding: 15px;
         background-color: #d4edda;
         color: #155724;
-        border-radius: 5px;
+        border-radius: 8px;
         border: 1px solid #c3e6cb;
+        text-align: center;
     }
     .warning-box {
-        padding: 10px;
+        padding: 15px;
         background-color: #fff3cd;
         color: #856404;
-        border-radius: 5px;
+        border-radius: 8px;
         border: 1px solid #ffeeba;
+        text-align: center;
+    }
+    .info-box {
+        padding: 15px;
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border-radius: 8px;
+        border: 1px solid #bee5eb;
+        text-align: center;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- TÍTULO E INTRODUÇÃO ---
+# --- TÍTULO ---
 st.title("💸 Calculadora de Equivalência Fiscal")
-st.markdown("""
-**Objetivo:** Comparar investimentos **Isentos de IR** (LCI, LCA, CRI, CRA, Debêntures Inc.) contra investimentos **Tributados** (CDB, LC, Tesouro, Debêntures Comuns), considerando a tabela regressiva de IR.
-""")
+st.markdown("Compare **Isentos** (LCI, LCA, CRI, CRA) vs **Tributados** (CDB, LC, Tesouro) de forma simples.")
 st.divider()
 
-# --- FUNÇÕES AUXILIARES ---
-
-def get_ir_aliquot(days):
-    """Retorna a alíquota de IR baseada no prazo em dias."""
-    if days <= 180:
-        return 0.225
-    elif days <= 360:
-        return 0.20
-    elif days <= 720:
-        return 0.175
-    else:
-        return 0.15
-
-def format_percent(val):
-    return f"{val:.2f}%"
-
-# --- SIDEBAR DE NAVEGAÇÃO ---
-st.sidebar.header("🛠️ Ferramentas")
+# --- SIDEBAR ---
+st.sidebar.header("🛠️ Menu")
 mode = st.sidebar.radio(
     "O que você quer fazer?",
     [
         "1. Comparar dois papéis (Duelo)",
-        "2. Converter Isento -> Bruto (Equivalência)",
-        "3. Converter Bruto -> Isento (Equivalência)"
+        "2. Converter Isento -> Bruto",
+        "3. Converter Bruto -> Isento"
     ]
 )
 
-# --- LÓGICA DO APP ---
-
-# TIPO DE TAXA (Comum a todas as telas)
 st.sidebar.markdown("---")
-st.sidebar.header("⚙️ Parâmetros")
+st.sidebar.header("⚙️ Configuração")
 rate_type = st.sidebar.selectbox(
     "Tipo de Rentabilidade",
     ["Pós-Fixado (% do CDI)", "Pré-Fixado (% a.a.)", "IPCA+ (% a.a.)"]
@@ -79,197 +65,164 @@ rate_type = st.sidebar.selectbox(
 
 if rate_type == "IPCA+ (% a.a.)":
     ipca_proj = st.sidebar.number_input(
-        "IPCA Projetado (% a.a.) - Essencial para o cálculo correto",
-        value=4.50, step=0.10, format="%.2f"
+        "IPCA Projetado (% a.a.)",
+        value=4.50, step=0.10, format="%.2f",
+        help="O IR incide sobre o retorno total (Taxa + IPCA), por isso a inflação importa."
     ) / 100
 else:
     ipca_proj = 0
+
+# --- LÓGICA DO APP ---
+
+# Dicionário de Alíquotas para facilitar a vida
+ir_options = {
+    "Até 6 meses (22,5%)": 0.225,
+    "De 6 meses a 1 ano (20,0%)": 0.20,
+    "De 1 a 2 anos (17,5%)": 0.175,
+    "Acima de 2 anos (15,0%)": 0.15
+}
 
 # ==============================================================================
 # MODO 1: DUELO (COMPARADOR)
 # ==============================================================================
 if mode == "1. Comparar dois papéis (Duelo)":
     st.header("🥊 Duelo de Investimentos")
-    st.info("Insira os dados dos dois papéis para ver qual coloca mais dinheiro no bolso do cliente.")
+    st.info("Coloque as taxas lado a lado e veja quem ganha.")
 
     col1, col2 = st.columns(2)
 
     with col1:
         st.subheader("🛡️ Isento")
-        st.caption("(LCI, LCA, CRI, CRA, etc.)")
         rate_exempt = st.number_input("Taxa Isenta", value=90.0 if rate_type == "Pós-Fixado (% do CDI)" else 6.0, step=0.1)
         
     with col2:
         st.subheader("🏛️ Tributado")
-        st.caption("(CDB, Renda Fixa, Tesouro)")
         rate_gross = st.number_input("Taxa Bruta", value=110.0 if rate_type == "Pós-Fixado (% do CDI)" else 8.0, step=0.1)
 
-    prazo_dias = st.slider("Prazo do Investimento (dias corridos)", min_value=30, max_value=1500, value=365, step=30)
-    
+    # SELETOR DE IR (SUBSTITUIU O SLIDER)
+    st.markdown("### 🦁 Mordida do Leão (IR)")
+    selected_ir_label = st.selectbox(
+        "Selecione o prazo/alíquota do investimento tributado:",
+        list(ir_options.keys()),
+        index=3 # Padrão 15% (longo prazo)
+    )
+    aliquota_ir = ir_options[selected_ir_label]
+
     # Cálculos
-    aliquota_ir = get_ir_aliquot(prazo_dias)
-    
-    # Normalização das taxas para cálculo decimal
     r_exempt = rate_exempt / 100
     r_gross = rate_gross / 100
     
-    # Lógica de Rentabilidade Líquida
     if rate_type == "Pós-Fixado (% do CDI)":
-        # Simples: Bruto * (1 - IR) vs Isento
         net_from_gross = r_gross * (1 - aliquota_ir)
         comparison_val_exempt = r_exempt
         unit = "% do CDI"
         
     elif rate_type == "Pré-Fixado (% a.a.)":
-        # Simples: Bruto * (1 - IR) vs Isento
         net_from_gross = r_gross * (1 - aliquota_ir)
         comparison_val_exempt = r_exempt
         unit = "% a.a."
         
     else: # IPCA+
-        # Complexo: O IR incide sobre (IPCA + Taxa)
-        # Rentabilidade Bruta Total = (1 + IPCA) * (1 + Taxa) - 1
         gross_total_yield = (1 + ipca_proj) * (1 + r_gross) - 1
         net_total_yield = gross_total_yield * (1 - aliquota_ir)
-        
-        # Agora convertemos de volta para IPCA + X líquido
-        # (1 + IPCA) * (1 + TaxaLiq) - 1 = Net Total Yield
-        # (1 + TaxaLiq) = (Net Total Yield + 1) / (1 + IPCA)
         spread_net_from_gross = ((net_total_yield + 1) / (1 + ipca_proj)) - 1
-        
-        net_from_gross = spread_net_from_gross * 100 # Para display
-        comparison_val_exempt = r_exempt # Já está em %
+        net_from_gross = spread_net_from_gross * 100 
+        comparison_val_exempt = r_exempt 
         unit = "% + IPCA"
 
     # Resultado Visual
     st.divider()
-    st.markdown(f"### Resultado para {prazo_dias} dias (IR: {aliquota_ir*100:.1f}%)")
+    
+    val_tributado_liq = net_from_gross * 100 if rate_type != 'IPCA+ (% a.a.)' else net_from_gross
+    val_isento = comparison_val_exempt * 100 if rate_type != 'IPCA+ (% a.a.)' else comparison_val_exempt
     
     col_res1, col_res2 = st.columns(2)
-    
     with col_res1:
-        st.metric(label="Rentabilidade Líquida do Tributado", value=f"{net_from_gross*100 if rate_type != 'IPCA+ (% a.a.)' else net_from_gross:.2f}{unit}")
-    
+        st.metric(label="Tributado (Líquido)", value=f"{val_tributado_liq:.2f}{unit}")
     with col_res2:
-        st.metric(label="Rentabilidade do Isento", value=f"{rate_exempt:.2f}{unit}")
+        st.metric(label="Isento (Nominal)", value=f"{val_isento:.2f}{unit}")
         
-    diff = (comparison_val_exempt * 100 if rate_type != 'IPCA+ (% a.a.)' else comparison_val_exempt) - (net_from_gross * 100 if rate_type != 'IPCA+ (% a.a.)' else net_from_gross)
+    diff = val_isento - val_tributado_liq
     
-    if diff > 0:
+    if diff > 0.01: # Margem pequena para evitar arredondamento chato
         st.markdown(f"""
         <div class="success-box">
-        <b>🏆 O ISENTO VENCEU!</b><br>
-        O papel isento rende <b>{abs(diff):.2f} p.p.</b> a mais que o tributado líquido.
+        <h3>🏆 O ISENTO VENCEU!</h3>
+        O papel isento coloca <b>{abs(diff):.2f} p.p.</b> a mais no bolso.<br>
+        (Equivale a um CDB bruto de <b>{(val_isento / (1-aliquota_ir) if rate_type != 'IPCA+ (% a.a.)' else (((((1+ipca_proj)*(1+(val_isento/100)))-1)/(1-aliquota_ir)+1)/(1+ipca_proj)-1)*100):.2f}{unit}</b>)
         </div>
         """, unsafe_allow_html=True)
-    elif diff < 0:
+    elif diff < -0.01:
         st.markdown(f"""
         <div class="warning-box">
-        <b>⚠️ O TRIBUTADO VENCEU!</b><br>
-        Mesmo pagando imposto, o papel tributado rende <b>{abs(diff):.2f} p.p.</b> a mais no bolso.
+        <h3>⚠️ O TRIBUTADO VENCEU!</h3>
+        Mesmo com IR, o tributado rende <b>{abs(diff):.2f} p.p.</b> a mais.<br>
+        (Para empatar, o isento precisaria pagar <b>{val_tributado_liq:.2f}{unit}</b>)
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.info("Empate técnico!")
+        st.markdown("""<div class="info-box"><h3>🤝 EMPATE TÉCNICO</h3>A rentabilidade é virtualmente idêntica.</div>""", unsafe_allow_html=True)
 
 # ==============================================================================
 # MODO 2: ISENTO -> BRUTO
 # ==============================================================================
-elif mode == "2. Converter Isento -> Bruto (Equivalência)":
-    st.header("🔄 De Isento para Bruto")
-    st.markdown("Se eu tenho um **LCI/CRI** pagando **X**, quanto um **CDB** precisaria pagar para empatar?")
+elif mode == "2. Converter Isento -> Bruto":
+    st.header("🔄 Tabela de Equivalência")
+    st.markdown("Se o **LCI/CRI** paga **X**, quanto o CDB tem que pagar para empatar?")
     
-    val_exempt = st.number_input("Taxa do Papel Isento", value=90.0 if rate_type == "Pós-Fixado (% do CDI)" else 6.0, step=0.5)
-    
-    st.subheader("Tabela de Equivalência")
-    st.text("Para empatar com esse papel isento, o CDB deve pagar pelo menos:")
+    val_exempt = st.number_input("Taxa Isenta", value=90.0 if rate_type == "Pós-Fixado (% do CDI)" else 6.0, step=0.5)
     
     results = []
-    brackets = [
-        ("Até 6 meses", 22.5),
-        ("6 a 12 meses", 20.0),
-        ("1 a 2 anos", 17.5),
-        ("Acima de 2 anos", 15.0)
-    ]
     
-    for prazo, ir in brackets:
-        ir_dec = ir / 100
+    for label, ir in ir_options.items():
         r_ex = val_exempt / 100
         
         if rate_type == "Pós-Fixado (% do CDI)" or rate_type == "Pré-Fixado (% a.a.)":
-            # Gross = Exempt / (1 - IR)
-            equiv_gross = r_ex / (1 - ir_dec)
+            equiv_gross = r_ex / (1 - ir)
             display_val = equiv_gross * 100
         else: # IPCA
-            # Eq: (1 + IPCA)*(1 + Exempt) - 1 = [(1 + IPCA)*(1 + Gross) - 1] * (1 - IR)
-            # Isolando Gross:
-            # NetTotal = (1 + IPCA)*(1 + Exempt) - 1
-            # GrossTotal = NetTotal / (1 - IR)
-            # (1 + IPCA)*(1 + Gross) = GrossTotal + 1
-            # 1 + Gross = (GrossTotal + 1) / (1 + IPCA)
-            
             net_total = (1 + ipca_proj)*(1 + r_ex) - 1
-            gross_total = net_total / (1 - ir_dec)
+            gross_total = net_total / (1 - ir)
             gross_spread = ((gross_total + 1) / (1 + ipca_proj)) - 1
             display_val = gross_spread * 100
             
         results.append({
-            "Prazo": prazo,
-            "IR (%)": f"{ir}%",
+            "IR / Prazo": label,
             f"Taxa Bruta Necessária ({rate_type})": f"{display_val:.2f}%"
         })
         
-    df = pd.DataFrame(results)
-    st.table(df)
-    
-    if rate_type == "IPCA+ (% a.a.)":
-        st.caption(f"*Cálculo considerando IPCA projetado de {ipca_proj*100:.2f}% a.a. O IR morde a inflação também!")
+    st.table(pd.DataFrame(results))
 
 # ==============================================================================
 # MODO 3: BRUTO -> ISENTO
 # ==============================================================================
-elif mode == "3. Converter Bruto -> Isento (Equivalência)":
-    st.header("🔄 De Bruto para Isento")
-    st.markdown("Se eu tenho um **CDB** pagando **Y**, quanto um **LCI/CRI** precisaria pagar para empatar?")
+elif mode == "3. Converter Bruto -> Isento":
+    st.header("🔄 Tabela de Equivalência")
+    st.markdown("Se o **CDB** paga **Y**, quanto o LCI/CRI tem que pagar para empatar?")
     
-    val_gross = st.number_input("Taxa do Papel Tributado", value=110.0 if rate_type == "Pós-Fixado (% do CDI)" else 8.0, step=0.5)
-    
-    st.subheader("Tabela de Equivalência")
-    st.text("O ganho líquido desse CDB equivale a um papel isento de:")
+    val_gross = st.number_input("Taxa Bruta", value=110.0 if rate_type == "Pós-Fixado (% do CDI)" else 8.0, step=0.5)
     
     results = []
-    brackets = [
-        ("Até 6 meses", 22.5),
-        ("6 a 12 meses", 20.0),
-        ("1 a 2 anos", 17.5),
-        ("Acima de 2 anos", 15.0)
-    ]
     
-    for prazo, ir in brackets:
-        ir_dec = ir / 100
+    for label, ir in ir_options.items():
         r_gr = val_gross / 100
         
         if rate_type == "Pós-Fixado (% do CDI)" or rate_type == "Pré-Fixado (% a.a.)":
-            # Exempt = Gross * (1 - IR)
-            equiv_exempt = r_gr * (1 - ir_dec)
+            equiv_exempt = r_gr * (1 - ir)
             display_val = equiv_exempt * 100
         else: # IPCA
-            # NetTotal = [(1 + IPCA)*(1 + Gross) - 1] * (1 - IR)
-            # ExemptSpread = [(NetTotal + 1) / (1 + IPCA)] - 1
-            
             gross_total = (1 + ipca_proj)*(1 + r_gr) - 1
-            net_total = gross_total * (1 - ir_dec)
+            net_total = gross_total * (1 - ir)
             exempt_spread = ((net_total + 1) / (1 + ipca_proj)) - 1
             display_val = exempt_spread * 100
             
         results.append({
-            "Prazo": prazo,
-            "IR (%)": f"{ir}%",
+            "IR / Prazo": label,
             f"Taxa Isenta Equivalente ({rate_type})": f"{display_val:.2f}%"
         })
         
-    df = pd.DataFrame(results)
-    st.table(df)
-    
-    if rate_type == "IPCA+ (% a.a.)":
-        st.caption(f"*Cálculo considerando IPCA projetado de {ipca_proj*100:.2f}% a.a.")
+    st.table(pd.DataFrame(results))
+
+# --- RODAPÉ ---
+st.markdown("---")
+st.caption("⚠️ **Atenção:** Cálculos consideram títulos **Bullet** (pagamento único no vencimento). Para títulos com cupom (pagamento semestral), a alíquota efetiva de IR tende a ser maior, reduzindo o ganho líquido do papel tributado.")
