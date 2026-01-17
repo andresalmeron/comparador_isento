@@ -218,7 +218,7 @@ if mode == "1. Comparar dois papéis (Duelo)":
 # ==============================================================================
 elif mode == "2. Converter Isento -> Bruto":
     st.header("🔄 Tabela de Equivalência")
-    st.markdown("Se o **LCI/CRI** paga **X**, quanto o CDB tem que pagar para empatar?")
+    st.markdown("Se o **ativo isento** paga **X**, quanto o ativo tributado tem que **pagar para empatar?**")
     
     val_exempt = st.number_input("Taxa Isenta", value=90.0 if rate_type == "Pós-Fixado (% do CDI)" else 6.0, step=0.5)
     
@@ -248,7 +248,7 @@ elif mode == "2. Converter Isento -> Bruto":
 # ==============================================================================
 elif mode == "3. Converter Bruto -> Isento":
     st.header("🔄 Tabela de Equivalência")
-    st.markdown("Se o **CDB** paga **Y**, quanto o LCI/CRI tem que pagar para empatar?")
+    st.markdown("Se o **ativo tributado** paga **X**, quanto o ativo isento **tem que pagar para empatar?**")
     
     val_gross = st.number_input("Taxa Bruta", value=110.0 if rate_type == "Pós-Fixado (% do CDI)" else 8.0, step=0.5)
     
