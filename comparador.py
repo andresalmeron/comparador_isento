@@ -116,8 +116,9 @@ if mode == "1. Comparar dois papéis (Duelo)":
         
         if tipo_input_duelo == "Inserir Datas Específicas (Avançado)":
             st.caption("Datas do Papel Isento")
-            dt_compra_ex = st.date_input("Compra (Isento)", date.today())
-            dt_venc_ex = st.date_input("Vencimento (Isento)", date.today().replace(year=date.today().year + 1))
+            # ADICIONADO: format="DD/MM/YYYY"
+            dt_compra_ex = st.date_input("Compra (Isento)", date.today(), format="DD/MM/YYYY")
+            dt_venc_ex = st.date_input("Vencimento (Isento)", date.today().replace(year=date.today().year + 1), format="DD/MM/YYYY")
             
             dias_ex = (dt_venc_ex - dt_compra_ex).days
             if dias_ex <= 0:
@@ -135,11 +136,11 @@ if mode == "1. Comparar dois papéis (Duelo)":
 
         if tipo_input_duelo == "Inserir Datas Específicas (Avançado)":
             st.caption("Datas do Papel Tributado")
-            dt_compra_br = st.date_input("Compra (Tributado)", date.today())
-            dt_venc_br = st.date_input("Vencimento (Tributado)", date.today().replace(year=date.today().year + 2))
+            # ADICIONADO: format="DD/MM/YYYY"
+            dt_compra_br = st.date_input("Compra (Tributado)", date.today(), format="DD/MM/YYYY")
+            dt_venc_br = st.date_input("Vencimento (Tributado)", date.today().replace(year=date.today().year + 2), format="DD/MM/YYYY")
             
-            dias_br = (dt_venc_br - dt_compra_br).days
-            
+            dias_br = (dt_venc_br - dt_compra_br).days            
             if dias_br <= 0:
                 st.error("Data de vencimento deve ser maior que compra.")
             else:
