@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from datetime import date
 
 # Configuração da Página
 st.set_page_config(
@@ -40,9 +41,21 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# --- FUNÇÕES AUXILIARES ---
+def calcular_aliquota_ir(dias):
+    """Retorna a alíquota decimal e o texto da faixa."""
+    if dias <= 180:
+        return 0.225, "22,5% (Até 6 meses)"
+    elif dias <= 360:
+        return 0.20, "20,0% (6 a 12 meses)"
+    elif dias <= 720:
+        return 0.175, "17,5% (1 a 2 anos)"
+    else:
+        return 0.15, "15,0% (Acima de 2 anos)"
+
 # --- TÍTULO ---
 st.title("💸 Calculadora de Equivalência Fiscal")
-st.markdown("Compare **Isentos** (LCI, LCA, CRI, CRA) vs **Tributados** (CDB, LC, Tesouro) de forma simples.")
+st.markdown("Compare **Isentos** (LCI, LCA, CRI, CRA) vs **Tributados** (CDB, LC, Tesouro).")
 st.divider()
 
 # --- SIDEBAR ---
@@ -72,9 +85,7 @@ if rate_type == "IPCA+ (% a.a.)":
 else:
     ipca_proj = 0
 
-# --- LÓGICA DO APP ---
-
-# Dicionário de Alíquotas para facilitar a vida
+# Dicionário de Alíquotas para o modo simples
 ir_options = {
     "Até 6 meses (22,5%)": 0.225,
     "De 6 meses a 1 ano (20,0%)": 0.20,
@@ -87,81 +98,119 @@ ir_options = {
 # ==============================================================================
 if mode == "1. Comparar dois papéis (Duelo)":
     st.header("🥊 Duelo de Investimentos")
-    st.info("Coloque as taxas lado a lado e veja quem ganha.")
+    
+    # Toggle para escolher o modo de datas
+    tipo_input_duelo = st.radio(
+        "Como definir os prazos?",
+        ["Selecionar Alíquota de IR (Prazos Iguais/Simples)", "Inserir Datas Específicas (Avançado)"],
+        horizontal=True
+    )
+    st.markdown("---")
 
     col1, col2 = st.columns(2)
 
+    # --- COLUNA DO ISENTO ---
     with col1:
         st.subheader("🛡️ Isento")
         rate_exempt = st.number_input("Taxa Isenta", value=90.0 if rate_type == "Pós-Fixado (% do CDI)" else 6.0, step=0.1)
         
+        if tipo_input_duelo == "Inserir Datas Específicas (Avançado)":
+            st.caption("Datas do Papel Isento")
+            dt_compra_ex = st.date_input("Compra (Isento)", date.today())
+            dt_venc_ex = st.date_input("Vencimento (Isento)", date.today().replace(year=date.today().year + 1))
+            
+            dias_ex = (dt_venc_ex - dt_compra_ex).days
+            if dias_ex <= 0:
+                st.error("Data de vencimento deve ser maior que compra.")
+            else:
+                st.markdown(f"**Prazo:** {dias_ex} dias corridos")
+
+    # --- COLUNA DO TRIBUTADO ---
     with col2:
         st.subheader("🏛️ Tributado")
         rate_gross = st.number_input("Taxa Bruta", value=110.0 if rate_type == "Pós-Fixado (% do CDI)" else 8.0, step=0.1)
 
-    # SELETOR DE IR (SUBSTITUIU O SLIDER)
-    st.markdown("### 🦁 Mordida do Leão (IR)")
-    selected_ir_label = st.selectbox(
-        "Selecione o prazo/alíquota do investimento tributado:",
-        list(ir_options.keys()),
-        index=3 # Padrão 15% (longo prazo)
-    )
-    aliquota_ir = ir_options[selected_ir_label]
+        aliquota_ir = 0.15 # Default
+        texto_ir = ""
 
-    # Cálculos
-    r_exempt = rate_exempt / 100
-    r_gross = rate_gross / 100
-    
-    if rate_type == "Pós-Fixado (% do CDI)":
-        net_from_gross = r_gross * (1 - aliquota_ir)
-        comparison_val_exempt = r_exempt
-        unit = "% do CDI"
+        if tipo_input_duelo == "Inserir Datas Específicas (Avançado)":
+            st.caption("Datas do Papel Tributado")
+            dt_compra_br = st.date_input("Compra (Tributado)", date.today())
+            dt_venc_br = st.date_input("Vencimento (Tributado)", date.today().replace(year=date.today().year + 2))
+            
+            dias_br = (dt_venc_br - dt_compra_br).days
+            
+            if dias_br <= 0:
+                st.error("Data de vencimento deve ser maior que compra.")
+            else:
+                aliquota_ir, texto_ir = calcular_aliquota_ir(dias_br)
+                st.markdown(f"**Prazo:** {dias_br} dias corridos")
+                st.markdown(f"**IR Aplicável:** `{texto_ir}`")
         
-    elif rate_type == "Pré-Fixado (% a.a.)":
-        net_from_gross = r_gross * (1 - aliquota_ir)
-        comparison_val_exempt = r_exempt
-        unit = "% a.a."
-        
-    else: # IPCA+
-        gross_total_yield = (1 + ipca_proj) * (1 + r_gross) - 1
-        net_total_yield = gross_total_yield * (1 - aliquota_ir)
-        spread_net_from_gross = ((net_total_yield + 1) / (1 + ipca_proj)) - 1
-        net_from_gross = spread_net_from_gross * 100 
-        comparison_val_exempt = r_exempt 
-        unit = "% + IPCA"
+        else: # Modo Simples
+            selected_ir_label = st.selectbox(
+                "IR do Investimento Tributado:",
+                list(ir_options.keys()),
+                index=3
+            )
+            aliquota_ir = ir_options[selected_ir_label]
 
-    # Resultado Visual
-    st.divider()
-    
-    val_tributado_liq = net_from_gross * 100 if rate_type != 'IPCA+ (% a.a.)' else net_from_gross
-    val_isento = comparison_val_exempt * 100 if rate_type != 'IPCA+ (% a.a.)' else comparison_val_exempt
-    
-    col_res1, col_res2 = st.columns(2)
-    with col_res1:
-        st.metric(label="Tributado (Líquido)", value=f"{val_tributado_liq:.2f}{unit}")
-    with col_res2:
-        st.metric(label="Isento (Nominal)", value=f"{val_isento:.2f}{unit}")
-        
-    diff = val_isento - val_tributado_liq
-    
-    if diff > 0.01: # Margem pequena para evitar arredondamento chato
-        st.markdown(f"""
-        <div class="success-box">
-        <h3>🏆 O ISENTO VENCEU!</h3>
-        O papel isento coloca <b>{abs(diff):.2f} p.p.</b> a mais no bolso.<br>
-        (Equivale a um CDB bruto de <b>{(val_isento / (1-aliquota_ir) if rate_type != 'IPCA+ (% a.a.)' else (((((1+ipca_proj)*(1+(val_isento/100)))-1)/(1-aliquota_ir)+1)/(1+ipca_proj)-1)*100):.2f}{unit}</b>)
-        </div>
-        """, unsafe_allow_html=True)
-    elif diff < -0.01:
-        st.markdown(f"""
-        <div class="warning-box">
-        <h3>⚠️ O TRIBUTADO VENCEU!</h3>
-        Mesmo com IR, o tributado rende <b>{abs(diff):.2f} p.p.</b> a mais.<br>
-        (Para empatar, o isento precisaria pagar <b>{val_tributado_liq:.2f}{unit}</b>)
-        </div>
-        """, unsafe_allow_html=True)
+    # --- CÁLCULOS ---
+    if (tipo_input_duelo == "Inserir Datas Específicas (Avançado)" and ('dias_br' not in locals() or dias_br <= 0)):
+        st.warning("Por favor, corrija as datas para prosseguir.")
     else:
-        st.markdown("""<div class="info-box"><h3>🤝 EMPATE TÉCNICO</h3>A rentabilidade é virtualmente idêntica.</div>""", unsafe_allow_html=True)
+        r_exempt = rate_exempt / 100
+        r_gross = rate_gross / 100
+        
+        # Determina a unidade e o cálculo
+        if rate_type == "Pós-Fixado (% do CDI)":
+            net_from_gross = r_gross * (1 - aliquota_ir)
+            comparison_val_exempt = r_exempt
+            unit = "% do CDI"
+            
+        elif rate_type == "Pré-Fixado (% a.a.)":
+            net_from_gross = r_gross * (1 - aliquota_ir)
+            comparison_val_exempt = r_exempt
+            unit = "% a.a."
+            
+        else: # IPCA+
+            gross_total_yield = (1 + ipca_proj) * (1 + r_gross) - 1
+            net_total_yield = gross_total_yield * (1 - aliquota_ir)
+            spread_net_from_gross = ((net_total_yield + 1) / (1 + ipca_proj)) - 1
+            net_from_gross = spread_net_from_gross * 100 
+            comparison_val_exempt = r_exempt 
+            unit = "% + IPCA"
+
+        # --- EXIBIÇÃO DO RESULTADO ---
+        st.divider()
+        
+        val_tributado_liq = net_from_gross * 100 if rate_type != 'IPCA+ (% a.a.)' else net_from_gross
+        val_isento = comparison_val_exempt * 100 if rate_type != 'IPCA+ (% a.a.)' else comparison_val_exempt
+        
+        col_res1, col_res2 = st.columns(2)
+        with col_res1:
+            st.metric(label="Tributado (Líquido)", value=f"{val_tributado_liq:.2f}{unit}")
+        with col_res2:
+            st.metric(label="Isento (Nominal)", value=f"{val_isento:.2f}{unit}")
+            
+        diff = val_isento - val_tributado_liq
+        
+        if diff > 0.01: 
+            st.markdown(f"""
+            <div class="success-box">
+            <h3>🏆 O ISENTO VENCEU!</h3>
+            O papel isento rende <b>{abs(diff):.2f} p.p.</b> a mais que este tributado.<br>
+            </div>
+            """, unsafe_allow_html=True)
+        elif diff < -0.01:
+            st.markdown(f"""
+            <div class="warning-box">
+            <h3>⚠️ O TRIBUTADO VENCEU!</h3>
+            O papel tributado rende <b>{abs(diff):.2f} p.p.</b> a mais, já descontando IR.<br>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""<div class="info-box"><h3>🤝 EMPATE TÉCNICO</h3>Rentabilidade praticamente idêntica.</div>""", unsafe_allow_html=True)
 
 # ==============================================================================
 # MODO 2: ISENTO -> BRUTO
@@ -225,4 +274,4 @@ elif mode == "3. Converter Bruto -> Isento":
 
 # --- RODAPÉ ---
 st.markdown("---")
-st.caption("⚠️ **Atenção:** Cálculos consideram títulos **Bullet** (pagamento único no vencimento). Para títulos com cupom (pagamento semestral), a alíquota efetiva de IR tende a ser maior, reduzindo o ganho líquido do papel tributado.")
+st.caption("⚠️ **Atenção:** Cálculos consideram títulos **Bullet**. Dias corridos são usados apenas para definição da alíquota de IR no modo avançado.")
