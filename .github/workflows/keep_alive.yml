@@ -2,9 +2,8 @@ name: Streamlit Keep Alive
 
 on:
   schedule:
-    # Roda a cada 10 horas (o limite do Streamlit é 12h)
     - cron: '0 */10 * * *'
-  workflow_dispatch: # Permite que você rode manualmente se quiser
+  workflow_dispatch:
 
 jobs:
   refresh:
@@ -12,6 +11,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+        with:
+          ref: deploy
 
       - name: Create dummy change
         run: |
@@ -19,5 +20,5 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add last_refresh.txt
-          git commit -m "bot: keep alive streamlit"
-          git push
+          git commit -m "bot: keep alive"
+          git push origin deploy
